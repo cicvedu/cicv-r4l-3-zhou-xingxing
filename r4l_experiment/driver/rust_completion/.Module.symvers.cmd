@@ -1,0 +1,1 @@
+cmd_/root/new_cicv/cicv-r4l-3-zhou-xingxing/r4l_experiment/driver/rust_completion/Module.symvers :=  sed 's/ko$$/o/'  /root/new_cicv/cicv-r4l-3-zhou-xingxing/r4l_experiment/driver/rust_completion/modules.order | scripts/mod/modpost      -o /root/new_cicv/cicv-r4l-3-zhou-xingxing/r4l_experiment/driver/rust_completion/Module.symvers -e -i Module.symvers -T - 

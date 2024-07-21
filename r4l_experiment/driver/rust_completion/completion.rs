@@ -5,15 +5,16 @@
 use core::result::Result::Err;
 use kernel::prelude::*;
 use kernel::sync::Mutex;
+use kernel::task::Task;
 use kernel::{chrdev, file};
 
 const GLOBALMEM_SIZE: usize = 0x1000;
 
 module! {
-    type: RustChrdev,
-    name: "rust_chrdev",
-    author: "Rust for Linux Contributors",
-    description: "Rust character device sample",
+    type: RustCompletion,
+    name: "completion",
+    author: "zhou-xingxing",
+    description: "Rust completion device sample",
     license: "GPL",
 }
 
@@ -31,6 +32,7 @@ impl file::Operations for RustFile {
     type Data = Box<Self>;
 
     fn open(_shared: &(), _file: &file::File) -> Result<Box<Self>> {
+        pr_info!("function open is invoked");
         Ok(
             Box::try_new(RustFile {
                 inner: &GLOBALMEM_BUF
@@ -39,7 +41,9 @@ impl file::Operations for RustFile {
     }
 
     fn write(_this: &Self,_file: &file::File,_reader: &mut impl kernel::io_buffer::IoBufferReader,_offset:u64,) -> Result<usize> {
-            let offset=_offset as usize;
+        pr_info!("function write is invoked\n");
+        pr_info!("process {} awakening the readers...\n", Task::current().pid());
+        let offset=_offset as usize;
         let mut dev=_this.inner.lock();
         // 避免字节长度超出字符设备
         let len=core::cmp::min(_reader.len(), dev.len().saturating_sub(offset));
@@ -48,22 +52,25 @@ impl file::Operations for RustFile {
     }
 
     fn read(_this: &Self,_file: &file::File,_writer: &mut impl kernel::io_buffer::IoBufferWriter,_offset:u64,) -> Result<usize> {
-            let offset=_offset as usize;
+        pr_info!("function read is invoked\n");
+        pr_info!("process {} is going to sleep\n", Task::current().pid());
+        let offset=_offset as usize;
         let dev=_this.inner.lock();
             // 避免字节长度超出缓冲区
         let len = core::cmp::min(_writer.len(),dev.len().saturating_sub(offset));
         _writer.write_slice(&dev[offset..][..len])?;
+        pr_info!("process {} awoken\n", Task::current().pid());
         Ok(len)
     }
 }
 
-struct RustChrdev {
+struct RustCompletion {
     _dev: Pin<Box<chrdev::Registration<2>>>,
 }
 
-impl kernel::Module for RustChrdev {
+impl kernel::Module for RustCompletion {
     fn init(name: &'static CStr, module: &'static ThisModule) -> Result<Self> {
-        pr_info!("Rust character device sample (init)\n");
+        pr_info!("Rust completion device (init)\n");
 
         let mut chrdev_reg = chrdev::Registration::new_pinned(name, 0, module)?;
 
@@ -73,12 +80,12 @@ impl kernel::Module for RustChrdev {
         chrdev_reg.as_mut().register::<RustFile>()?;
         chrdev_reg.as_mut().register::<RustFile>()?;
 
-        Ok(RustChrdev { _dev: chrdev_reg })
+        Ok(RustCompletion { _dev: chrdev_reg })
     }
 }
 
-impl Drop for RustChrdev {
+impl Drop for RustCompletion {
     fn drop(&mut self) {
-        pr_info!("Rust character device sample (exit)\n");
+        pr_info!("Rust completion device (exit)\n");
     }
 }
